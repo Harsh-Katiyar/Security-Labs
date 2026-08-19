@@ -17,5 +17,31 @@
       "profileUrl": ""
     }
   },
-  "labs": []
+  "labs": [
+    {
+      "id": "THM-001",
+      "platform": "tryhackme",
+      "platformName": "TryHackMe",
+      "name": "Fools Mate",
+      "type": "Room",
+      "category": "Web Security",
+      "status": "completed",
+      "completedDate": "2026-08-19",
+      "skills": [
+        "Web Security",
+        "Reconnaissance",
+        "Vulnerability Analysis"
+      ],
+      "labUrl": "https://tryhackme.com/room/foolsmate",
+      "linkedinUrl": "https://lnkd.in/p/dcFWwza8",
+      "certificateUrl": null,
+      "evidenceUrl": null,
+      "reportUrl": null,
+      "featured": false,
+      "tags": [
+        "soc",
+        "tryhackme"
+      ]
+    }
+  ]
 }
