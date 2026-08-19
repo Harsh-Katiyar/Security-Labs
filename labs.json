@@ -1,0 +1,21 @@
+{
+  "profiles": {
+    "tryhackme": {
+      "name": "TryHackMe",
+      "profileUrl": "https://tryhackme.com/p/cyberwithharsh"
+    },
+    "hackthebox": {
+      "name": "Hack The Box",
+      "profileUrl": "https://profile.hackthebox.com/profile/019f3386-a933-729d-a471-7e13e14564ce?utm_medium=copy_url"
+    },
+    "letsdefend": {
+      "name": "LetsDefend",
+      "profileUrl": "https://app.letsdefend.io/user/CyberwithHarsh"
+    },
+    "other": {
+      "name": "Other",
+      "profileUrl": ""
+    }
+  },
+  "labs": []
+}
