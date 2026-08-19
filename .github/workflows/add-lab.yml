@@ -1,0 +1,386 @@
+name: Add Security Lab
+
+on:
+  workflow_dispatch:
+    inputs:
+
+      linkedin_url:
+        description: "LinkedIn post URL"
+        required: true
+        type: string
+
+      linkedin_text:
+        description: "Paste the LinkedIn post text including hashtags"
+        required: true
+        type: string
+
+      lab_name:
+        description: "Lab / course / room name"
+        required: true
+        type: string
+
+      lab_url:
+        description: "Direct lab URL"
+        required: true
+        type: string
+
+      learning_type:
+        description: "Room / Lab / Module / Course / Learning Path / Challenge / Other"
+        required: true
+        type: string
+
+      category:
+        description: "Main category"
+        required: true
+        type: string
+
+      skills:
+        description: "Skills learned, separated by commas"
+        required: false
+        type: string
+
+      completed_date:
+        description: "Completion date YYYY-MM-DD"
+        required: true
+        type: string
+
+      certificate_url:
+        description: "Optional certificate URL"
+        required: false
+        type: string
+
+      evidence_url:
+        description: "Optional GitHub evidence URL"
+        required: false
+        type: string
+
+      report_url:
+        description: "Optional report URL"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  add-lab:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Add lab
+        env:
+          LINKEDIN_URL: ${{ inputs.linkedin_url }}
+          LINKEDIN_TEXT: ${{ inputs.linkedin_text }}
+          LAB_NAME: ${{ inputs.lab_name }}
+          LAB_URL: ${{ inputs.lab_url }}
+          LEARNING_TYPE: ${{ inputs.learning_type }}
+          CATEGORY: ${{ inputs.category }}
+          SKILLS: ${{ inputs.skills }}
+          COMPLETED_DATE: ${{ inputs.completed_date }}
+          CERTIFICATE_URL: ${{ inputs.certificate_url }}
+          EVIDENCE_URL: ${{ inputs.evidence_url }}
+          REPORT_URL: ${{ inputs.report_url }}
+
+        run: |
+
+          python <<'PY'
+
+          import json
+          import os
+          import re
+
+          from pathlib import Path
+
+
+          # -----------------------------------------
+          # Read workflow inputs
+          # -----------------------------------------
+
+          linkedin_url = os.environ["LINKEDIN_URL"].strip()
+
+          linkedin_text = os.environ["LINKEDIN_TEXT"].strip()
+
+          lab_name = os.environ["LAB_NAME"].strip()
+
+          lab_url = os.environ["LAB_URL"].strip()
+
+          learning_type = os.environ["LEARNING_TYPE"].strip()
+
+          category = os.environ["CATEGORY"].strip()
+
+          skills_raw = os.environ.get("SKILLS", "").strip()
+
+          completed_date = os.environ["COMPLETED_DATE"].strip()
+
+          certificate_url = os.environ.get(
+              "CERTIFICATE_URL",
+              ""
+          ).strip()
+
+          evidence_url = os.environ.get(
+              "EVIDENCE_URL",
+              ""
+          ).strip()
+
+          report_url = os.environ.get(
+              "REPORT_URL",
+              ""
+          ).strip()
+
+
+          # -----------------------------------------
+          # Required hashtag
+          # -----------------------------------------
+
+          text_lower = linkedin_text.lower()
+
+          if "#soclabs" in text_lower:
+              required_tag = True
+
+          elif "#soclabs" not in text_lower:
+              # Support the intended tag without
+              # silently accepting unrelated posts.
+              raise SystemExit(
+                  "LinkedIn post must contain #SOCLab."
+              )
+
+
+          # -----------------------------------------
+          # Platform classification
+          # -----------------------------------------
+
+          if (
+              "#tryhackme" in text_lower
+              or "#thm" in text_lower
+          ):
+
+              platform = "tryhackme"
+
+              platform_name = "TryHackMe"
+
+
+          elif (
+              "#hackthebox" in text_lower
+              or "#htb" in text_lower
+          ):
+
+              platform = "hackthebox"
+
+              platform_name = "Hack The Box"
+
+
+          elif "#letsdefend" in text_lower:
+
+              platform = "letsdefend"
+
+              platform_name = "LetsDefend"
+
+
+          else:
+
+              platform = "other"
+
+              platform_name = "Other"
+
+
+          # -----------------------------------------
+          # Load labs.json
+          # -----------------------------------------
+
+          path = Path("labs.json")
+
+
+          with path.open(
+              "r",
+              encoding="utf-8"
+          ) as f:
+
+              data = json.load(f)
+
+
+          labs = data.setdefault(
+              "labs",
+              []
+          )
+
+
+          # -----------------------------------------
+          # Duplicate protection
+          #
+          # LinkedIn URL is unique.
+          # -----------------------------------------
+
+          for existing in labs:
+
+              if (
+                  existing.get("linkedinUrl")
+                  == linkedin_url
+              ):
+
+                  raise SystemExit(
+                      "This LinkedIn post is already in labs.json."
+                  )
+
+
+          # -----------------------------------------
+          # Generate ID
+          # -----------------------------------------
+
+          prefixes = {
+
+              "tryhackme": "THM",
+
+              "hackthebox": "HTB",
+
+              "letsdefend": "LD",
+
+              "other": "OTHER"
+
+          }
+
+
+          prefix = prefixes[platform]
+
+
+          existing_ids = {
+
+              str(x.get("id", ""))
+
+              for x in labs
+
+          }
+
+
+          number = 1
+
+
+          while (
+              f"{prefix}-{number:03d}"
+              in existing_ids
+          ):
+
+              number += 1
+
+
+          lab_id = f"{prefix}-{number:03d}"
+
+
+          # -----------------------------------------
+          # Skills
+          # -----------------------------------------
+
+          skills = [
+
+              x.strip()
+
+              for x in skills_raw.split(",")
+
+              if x.strip()
+
+          ]
+
+
+          # -----------------------------------------
+          # New record
+          # -----------------------------------------
+
+          record = {
+
+              "id": lab_id,
+
+              "platform": platform,
+
+              "platformName": platform_name,
+
+              "name": lab_name,
+
+              "type": learning_type,
+
+              "category": category,
+
+              "status": "completed",
+
+              "completedDate": completed_date,
+
+              "skills": skills,
+
+              "labUrl": lab_url,
+
+              "linkedinUrl": linkedin_url,
+
+              "certificateUrl": (
+                  certificate_url
+                  or None
+              ),
+
+              "evidenceUrl": (
+                  evidence_url
+                  or None
+              ),
+
+              "reportUrl": (
+                  report_url
+                  or None
+              ),
+
+              "featured": False,
+
+              "tags": [
+
+                  "soc",
+
+                  platform
+
+              ]
+
+          }
+
+
+          labs.append(record)
+
+
+          # -----------------------------------------
+          # Save
+          # -----------------------------------------
+
+          with path.open(
+              "w",
+              encoding="utf-8"
+          ) as f:
+
+              json.dump(
+                  data,
+                  f,
+                  indent=2,
+                  ensure_ascii=False
+              )
+
+
+          print(
+              f"Added {lab_id}: {lab_name}"
+          )
+
+          print(
+              f"Platform: {platform_name}"
+          )
+
+          PY
+
+      - name: Commit changes
+        run: |
+
+          git config user.name "github-actions[bot]"
+
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add labs.json
+
+          git commit \
+            -m "Add security lab"
+
+          git push
