@@ -3,7 +3,6 @@ name: Add Security Lab
 on:
   workflow_dispatch:
     inputs:
-
       linkedin_url:
         description: "LinkedIn post URL"
         required: true
@@ -64,11 +63,9 @@ permissions:
 
 jobs:
   add-lab:
-
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -87,267 +84,138 @@ jobs:
           REPORT_URL: ${{ inputs.report_url }}
 
         run: |
-
           python <<'PY'
-
           import json
           import os
-          import re
-
           from pathlib import Path
 
-
-          # -----------------------------------------
-          # Read workflow inputs
-          # -----------------------------------------
-
           linkedin_url = os.environ["LINKEDIN_URL"].strip()
-
           linkedin_text = os.environ["LINKEDIN_TEXT"].strip()
-
           lab_name = os.environ["LAB_NAME"].strip()
-
           lab_url = os.environ["LAB_URL"].strip()
-
           learning_type = os.environ["LEARNING_TYPE"].strip()
-
           category = os.environ["CATEGORY"].strip()
-
           skills_raw = os.environ.get("SKILLS", "").strip()
-
           completed_date = os.environ["COMPLETED_DATE"].strip()
+          certificate_url = os.environ.get("CERTIFICATE_URL", "").strip()
+          evidence_url = os.environ.get("EVIDENCE_URL", "").strip()
+          report_url = os.environ.get("REPORT_URL", "").strip()
 
-          certificate_url = os.environ.get(
-              "CERTIFICATE_URL",
-              ""
-          ).strip()
-
-          evidence_url = os.environ.get(
-              "EVIDENCE_URL",
-              ""
-          ).strip()
-
-          report_url = os.environ.get(
-              "REPORT_URL",
-              ""
-          ).strip()
-
-
-          # -----------------------------------------
-          # Required hashtag
-          # -----------------------------------------
-
+          # -------------------------------------------------
+          # Required LinkedIn tag
+          # -------------------------------------------------
           text_lower = linkedin_text.lower()
 
           if "#soclab" not in text_lower and "#soclabs" not in text_lower:
-          raise SystemExit(
-          "LinkedIn post must contain #SOCLab."
-          )
+              raise SystemExit(
+                  "LinkedIn post must contain #SOCLab."
+              )
 
-
-          # -----------------------------------------
-          # Platform classification
-          # -----------------------------------------
-
-          if (
-              "#tryhackme" in text_lower
-              or "#thm" in text_lower
-          ):
-
+          # -------------------------------------------------
+          # Detect platform from LinkedIn hashtags
+          # -------------------------------------------------
+          if "#tryhackme" in text_lower or "#thm" in text_lower:
               platform = "tryhackme"
-
               platform_name = "TryHackMe"
 
-
-          elif (
-              "#hackthebox" in text_lower
-              or "#htb" in text_lower
-          ):
-
+          elif "#hackthebox" in text_lower or "#htb" in text_lower:
               platform = "hackthebox"
-
               platform_name = "Hack The Box"
 
-
           elif "#letsdefend" in text_lower:
-
               platform = "letsdefend"
-
               platform_name = "LetsDefend"
 
-
           else:
-
               platform = "other"
-
               platform_name = "Other"
 
-
-          # -----------------------------------------
+          # -------------------------------------------------
           # Load labs.json
-          # -----------------------------------------
-
+          # -------------------------------------------------
           path = Path("labs.json")
 
+          if not path.exists():
+              raise SystemExit("labs.json was not found.")
 
-          with path.open(
-              "r",
-              encoding="utf-8"
-          ) as f:
-
+          with path.open("r", encoding="utf-8") as f:
               data = json.load(f)
 
+          labs = data.setdefault("labs", [])
 
-          labs = data.setdefault(
-              "labs",
-              []
-          )
-
-
-          # -----------------------------------------
+          # -------------------------------------------------
           # Duplicate protection
-          #
-          # LinkedIn URL is unique.
-          # -----------------------------------------
-
+          # -------------------------------------------------
           for existing in labs:
-
-              if (
-                  existing.get("linkedinUrl")
-                  == linkedin_url
-              ):
-
+              if existing.get("linkedinUrl") == linkedin_url:
                   raise SystemExit(
-                      "This LinkedIn post is already in labs.json."
+                      "This LinkedIn post is already recorded in labs.json."
                   )
 
-
-          # -----------------------------------------
-          # Generate ID
-          # -----------------------------------------
-
+          # -------------------------------------------------
+          # Create unique ID
+          # -------------------------------------------------
           prefixes = {
-
               "tryhackme": "THM",
-
               "hackthebox": "HTB",
-
               "letsdefend": "LD",
-
               "other": "OTHER"
-
           }
-
 
           prefix = prefixes[platform]
 
-
           existing_ids = {
-
-              str(x.get("id", ""))
-
-              for x in labs
-
+              str(item.get("id", ""))
+              for item in labs
           }
-
 
           number = 1
 
-
-          while (
-              f"{prefix}-{number:03d}"
-              in existing_ids
-          ):
-
+          while f"{prefix}-{number:03d}" in existing_ids:
               number += 1
-
 
           lab_id = f"{prefix}-{number:03d}"
 
-
-          # -----------------------------------------
+          # -------------------------------------------------
           # Skills
-          # -----------------------------------------
-
+          # -------------------------------------------------
           skills = [
-
-              x.strip()
-
-              for x in skills_raw.split(",")
-
-              if x.strip()
-
+              item.strip()
+              for item in skills_raw.split(",")
+              if item.strip()
           ]
 
-
-          # -----------------------------------------
-          # New record
-          # -----------------------------------------
-
+          # -------------------------------------------------
+          # Create lab record
+          # -------------------------------------------------
           record = {
-
               "id": lab_id,
-
               "platform": platform,
-
               "platformName": platform_name,
-
               "name": lab_name,
-
               "type": learning_type,
-
               "category": category,
-
               "status": "completed",
-
               "completedDate": completed_date,
-
               "skills": skills,
-
               "labUrl": lab_url,
-
               "linkedinUrl": linkedin_url,
-
-              "certificateUrl": (
-                  certificate_url
-                  or None
-              ),
-
-              "evidenceUrl": (
-                  evidence_url
-                  or None
-              ),
-
-              "reportUrl": (
-                  report_url
-                  or None
-              ),
-
+              "certificateUrl": certificate_url or None,
+              "evidenceUrl": evidence_url or None,
+              "reportUrl": report_url or None,
               "featured": False,
-
               "tags": [
-
                   "soc",
-
                   platform
-
               ]
-
           }
-
 
           labs.append(record)
 
-
-          # -----------------------------------------
-          # Save
-          # -----------------------------------------
-
-          with path.open(
-              "w",
-              encoding="utf-8"
-          ) as f:
-
+          # -------------------------------------------------
+          # Save labs.json
+          # -------------------------------------------------
+          with path.open("w", encoding="utf-8") as f:
               json.dump(
                   data,
                   f,
@@ -355,27 +223,21 @@ jobs:
                   ensure_ascii=False
               )
 
-
-          print(
-              f"Added {lab_id}: {lab_name}"
-          )
-
-          print(
-              f"Platform: {platform_name}"
-          )
-
+          print(f"Added {lab_id}: {lab_name}")
+          print(f"Platform: {platform_name}")
           PY
 
-      - name: Commit changes
+      - name: Commit labs.json
         run: |
-
           git config user.name "github-actions[bot]"
-
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add labs.json
 
-          git commit \
-            -m "Add security lab"
+          if git diff --cached --quiet; then
+            echo "No labs.json changes detected."
+            exit 0
+          fi
 
+          git commit -m "Add security lab"
           git push
